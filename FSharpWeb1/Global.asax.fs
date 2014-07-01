@@ -19,10 +19,23 @@ module SalesPeople =
     let db = new AdventureWorks()
 
     type SalesPeople = SqlCommandProvider<"
-        SELECT TOP(@TopN) BusinessEntityID, FirstName, LastName, SalesYTD 
-        FROM Sales.vSalesPerson
-        WHERE CountryRegionName = @regionName AND SalesYTD > @salesMoreThan
-        ORDER BY SalesYTD", connectionString>
+        SELECT TOP(@TopN) s.BusinessEntityID, p.FirstName, p.LastName, s.SalesYTD 
+        FROM [Sales].[SalesPerson] s
+            INNER JOIN [HumanResources].[Employee] e 
+            ON e.[BusinessEntityID] = s.[BusinessEntityID]
+            INNER JOIN [Person].[Person] p
+            ON p.[BusinessEntityID] = s.[BusinessEntityID]
+            INNER JOIN [Person].[BusinessEntityAddress] bea 
+            ON bea.[BusinessEntityID] = s.[BusinessEntityID] 
+            INNER JOIN [Person].[Address] a 
+            ON a.[AddressID] = bea.[AddressID]
+            INNER JOIN [Person].[StateProvince] sp 
+            ON sp.[StateProvinceID] = a.[StateProvinceID]
+            INNER JOIN [Person].[CountryRegion] cr 
+            ON cr.[CountryRegionCode] = sp.[CountryRegionCode]
+        WHERE cr.Name = @regionName AND s.SalesYTD > @salesMoreThan
+        ORDER BY s.SalesYTD DESC
+        ", connectionString>
     
     let getSalesPeople(topN, regionName, salesMoreThan) =
         async {
@@ -30,6 +43,28 @@ module SalesPeople =
             return! cmd.AsyncExecute(TopN = topN, regionName = regionName, salesMoreThan = salesMoreThan)
         }
         |> Async.Catch
+    
+    type Result<'TSuccess, 'TFailure> =
+        | Success of 'TSuccess
+        | Failure of 'TFailure
+    
+    let validate (people: seq<SalesPeople.Record>) =
+        let people = people |> Seq.cache
+        if Seq.length people > 5 then
+            Choice2Of2(exn "Requested result set too large.")
+        else Choice1Of2(people)
+    
+    let toResponse (request: HttpRequestMessage) =
+        function
+        | Choice1Of2 people   -> request.CreateResponse people
+        | Choice2Of2 (e: exn) -> request.CreateErrorResponse(HttpStatusCode.BadRequest, e)
+    
+    let bind<'T, 'U> (f: 'T -> Choice<'U, exn>) =
+        function
+        | Choice1Of2 res -> f res
+        | Choice2Of2 e   -> Choice2Of2 e
+    
+    let (>>=) result f = bind f result
     
     let salesPeopleHandler (request: HttpRequestMessage) =
         let queryString =
@@ -39,13 +74,15 @@ module SalesPeople =
         let topN = queryString |> Array.tryFind (fun (key, _) -> key = "topN") |> Option.map (snd >> int64)
         let region = queryString |> Array.tryFind (fun (key, _) -> key = "region") |> Option.map snd
         let sales = queryString |> Array.tryFind (fun x -> (fst x) = "sales") |> Option.map (snd >> decimal)
+
         async {
             match topN, region, sales with
             | Some(topN), Some(regionName), Some(salesMoreThan) ->
                 let! result = getSalesPeople(topN, regionName, salesMoreThan)
-                match result with
-                | Choice1Of2 res -> return request.CreateResponse(res |> Seq.toArray)
-                | Choice2Of2 e   -> return request.CreateErrorResponse(HttpStatusCode.InternalServerError, e)
+                return
+                    result
+                    >>= validate
+                    |> toResponse request
             | _ -> return request.CreateErrorResponse(HttpStatusCode.BadRequest, "Missing query string parameters")
         }
 

@@ -2,19 +2,30 @@
 
 open NUnit.Framework
 open Swensen.Unquote
+open FSharpWeb1
+
+type SalesPerson = SalesPeople.SalesPeople.Record
 
 [<Test>]
 let ``test get sales people``() =
-    let salesPeople =
+    let actual =
         async {
-            let! result = FSharpWeb1.SalesPeople.getSalesPeople(3L, "United States", 1000000M)
+            let! result = SalesPeople.getSalesPeople(3L, "United States", 1000000M)
             match result with
-            | Choice1Of2 res ->
-                return res |> Seq.toArray
+            | Choice1Of2 people ->
+                return people |> Seq.toArray
             | Choice2Of2 e   -> return [||]
         }
         |> Async.RunSynchronously
-    test <@ salesPeople.Length = 3 @>
+    test <@ actual.Length = 3 @>
+
+    let expected =
+        [|
+            SalesPerson(businessEntityID = 276, firstName = "Linda", lastName = "Mitchell", salesYTD = 4251368.5497M)
+            SalesPerson(businessEntityID = 275, firstName = "Michael", lastName = "Blythe", salesYTD = 3763178.1787M)
+            SalesPerson(businessEntityID = 277, firstName = "Jillian", lastName = "Carson", salesYTD = 3189418.3662M)
+        |]
+    actual =? expected
 
 
 open System
@@ -63,21 +74,17 @@ let ``Test client can use active patterns``() =
         match response with
         | JSON(_, content) ->
             let! json = content |> Async.AwaitTask
-            Assert.That(response.StatusCode = HttpStatusCode.OK)
+            response.StatusCode =? HttpStatusCode.OK
             // In the case above, we will retrieve a JSON array.
             Assert.IsAssignableFrom<Newtonsoft.Json.Linq.JArray>(json)
-            client.Dispose()
         | OK(_, content) -> // content removed for clarity
             let! result = content.ReadAsStringAsync() |> Async.AwaitTask
-            Assert.That(response.StatusCode = HttpStatusCode.OK)
-            client.Dispose()
+            response.StatusCode =? HttpStatusCode.OK
         | BadRequest(_, content) ->
             let! result = content.ReadAsStringAsync() |> Async.AwaitTask
-            Assert.That(response.StatusCode = HttpStatusCode.BadRequest)
-            client.Dispose()
+            response.StatusCode =? HttpStatusCode.BadRequest
         | NotFound(_, content) ->
             let! result = content.ReadAsStringAsync() |> Async.AwaitTask
-            Assert.That(response.StatusCode = HttpStatusCode.NotFound)
-            client.Dispose()
+            response.StatusCode =? HttpStatusCode.NotFound
         | _ -> Assert.Fail("Received an unexpected response")
     } |> Async.RunSynchronously
