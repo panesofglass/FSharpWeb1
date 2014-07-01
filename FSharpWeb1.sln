@@ -7,6 +7,9 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharpWeb1", "FSharpWeb1\FS
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{7BFBE0EC-290A-477C-89EC-72FB4F17114E}"
 	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
 		.nuget\packages.config = .nuget\packages.config
 	EndProjectSection
 EndProject
