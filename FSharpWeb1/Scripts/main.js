@@ -1,10 +1,13 @@
 ﻿$(function () {
-    var uri = 'api/cars';
+    var uri = //'api/cars';
+        'salespeople?topN=3&region=United%20States&sales=100000';
 
     $.getJSON(uri)
         .done(function (data) {
             $.each(data, function (key, item) {
-                $('<tr><td>' + (key + 1) + '</td><td>' + item.make + '</td><td>' + item.model + '</td></tr>')
+                $('<tr><td>' + item.businessEntityID + '</td><td>' +
+                    item.firstName + ' ' + item.lastName + '</td><td>' +
+                    item.salesYTD + '</td></tr>')
                     .appendTo($('#cars tbody'));
             });
         });

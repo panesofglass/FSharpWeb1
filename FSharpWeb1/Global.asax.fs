@@ -1,12 +1,14 @@
 namespace FSharpWeb1
 
 open System
+open System.Net
 open System.Net.Http
 open System.Web
 open System.Web.Http
+open System.Web.Http.HttpResource
 open System.Web.Routing
 
-module DataAccess =
+module SalesPeople =
     open FSharp.Data
 
     [<Literal>]
@@ -27,6 +29,24 @@ module DataAccess =
             use cmd = new SalesPeople()
             return! cmd.AsyncExecute(TopN = topN, regionName = regionName, salesMoreThan = salesMoreThan)
         }
+    
+    let salesPeopleHandler (request: HttpRequestMessage) =
+        let queryString =
+            request.GetQueryNameValuePairs()
+            |> Seq.toArray
+            |> Array.Parallel.map (fun (KeyValue(key, value)) -> key, value)
+        let topN = queryString |> Array.tryFind (fun (key, _) -> key = "topN") |> Option.map (snd >> int64)
+        let region = queryString |> Array.tryFind (fun (key, _) -> key = "region") |> Option.map snd
+        let sales = queryString |> Array.tryFind (fun x -> (fst x) = "sales") |> Option.map (snd >> decimal)
+        async {
+            match topN, region, sales with
+            | Some(topN), Some(regionName), Some(salesMoreThan) ->
+                let! result = getSalesPeople(topN, regionName, salesMoreThan)
+                return request.CreateResponse(result |> Seq.toArray)
+            | _ -> return request.CreateErrorResponse(HttpStatusCode.BadRequest, "Missing query string parameters")
+        }
+
+    let salesPeopleResource = route "/salespeople" <| get salesPeopleHandler
 
 type HttpRoute = {
     controller : string
@@ -36,6 +56,8 @@ type Global() =
     inherit System.Web.HttpApplication() 
 
     static member RegisterWebApi(config: HttpConfiguration) =
+        config |> register [SalesPeople.salesPeopleResource]
+
         // Configure routing
         config.MapHttpAttributeRoutes()
         config.Routes.MapHttpRoute(

@@ -7,7 +7,7 @@ open Swensen.Unquote
 let ``test get sales people``() =
     let salesPeople =
         async {
-            let! result = FSharpWeb1.DataAccess.getSalesPeople(3L, "United States", 1000000M)
+            let! result = FSharpWeb1.SalesPeople.getSalesPeople(3L, "United States", 1000000M)
             return result |> Seq.toArray
         }
         |> Async.RunSynchronously
