@@ -6,6 +6,17 @@ open System.Web
 open System.Web.Http
 open System.Web.Routing
 
+module DataAccess =
+    open FSharp.Data
+
+    [<Literal>]
+    let connectionString = "name=AdventureWorks"
+
+    type AdventureWorks = SqlProgrammabilityProvider<connectionString>
+
+    let db = new AdventureWorks()
+
+
 type HttpRoute = {
     controller : string
     id : RouteParameter }
