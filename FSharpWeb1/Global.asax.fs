@@ -29,6 +29,7 @@ module SalesPeople =
             use cmd = new SalesPeople()
             return! cmd.AsyncExecute(TopN = topN, regionName = regionName, salesMoreThan = salesMoreThan)
         }
+        |> Async.Catch
     
     let salesPeopleHandler (request: HttpRequestMessage) =
         let queryString =
@@ -42,7 +43,9 @@ module SalesPeople =
             match topN, region, sales with
             | Some(topN), Some(regionName), Some(salesMoreThan) ->
                 let! result = getSalesPeople(topN, regionName, salesMoreThan)
-                return request.CreateResponse(result |> Seq.toArray)
+                match result with
+                | Choice1Of2 res -> return request.CreateResponse(res |> Seq.toArray)
+                | Choice2Of2 e   -> return request.CreateErrorResponse(HttpStatusCode.InternalServerError, e)
             | _ -> return request.CreateErrorResponse(HttpStatusCode.BadRequest, "Missing query string parameters")
         }
 
