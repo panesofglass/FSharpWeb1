@@ -16,6 +16,17 @@ module DataAccess =
 
     let db = new AdventureWorks()
 
+    type SalesPeople = SqlCommandProvider<"
+        SELECT TOP(@TopN) BusinessEntityID, FirstName, LastName, SalesYTD 
+        FROM Sales.vSalesPerson
+        WHERE CountryRegionName = @regionName AND SalesYTD > @salesMoreThan
+        ORDER BY SalesYTD", connectionString>
+    
+    let getSalesPeople(topN, regionName, salesMoreThan) =
+        async {
+            use cmd = new SalesPeople()
+            return! cmd.AsyncExecute(TopN = topN, regionName = regionName, salesMoreThan = salesMoreThan)
+        }
 
 type HttpRoute = {
     controller : string
